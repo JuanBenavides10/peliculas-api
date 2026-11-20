@@ -44,7 +44,7 @@ namespace PeliculasAPI.Servicios
                 return Task.CompletedTask;
             }
 
-            var nombreArchivo = Path.GetDirectoryName(ruta);
+            var nombreArchivo = Path.GetFileName(ruta);
             var directorioArchivo = Path.Combine(env.WebRootPath, contenedor, nombreArchivo);
 
             if (File.Exists(directorioArchivo))

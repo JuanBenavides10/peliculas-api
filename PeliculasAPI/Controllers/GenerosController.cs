@@ -12,14 +12,14 @@ namespace PeliculasAPI.Controllers
 {
     [Route("api/generos")]
     [ApiController] //reglas de validacion
-    public class GenerosController : ControllerBase
+    public class GenerosController : CustomBaseController
     {
 
         private readonly IOutputCacheStore outputCacheStore;
         private readonly ApplicationDbContext context;
         private readonly IMapper mapper;
         private const string cacheTag = "generos";
-        public GenerosController(IOutputCacheStore outputCacheStore, ApplicationDbContext context, IMapper mapper)
+        public GenerosController(IOutputCacheStore outputCacheStore, ApplicationDbContext context, IMapper mapper) :base(context,mapper)
         {
             this.outputCacheStore = outputCacheStore;
             this.context = context;
@@ -30,12 +30,7 @@ namespace PeliculasAPI.Controllers
         [OutputCache(Tags = [cacheTag])]
         public async Task<List<GeneroDTO>> Get([FromQuery] PaginacionDTO paginacion)
         {
-            var queryable = context.Generos;
-            await HttpContext.InsertarParametrosPaginacionEnCabecera(queryable);
-            return await queryable
-                .OrderBy(g => g.Nombre)
-                .Paginar(paginacion)
-                .ProjectTo<GeneroDTO>(mapper.ConfigurationProvider).ToListAsync(); //ProjectTo -> No realiza consulta de datos que no necesita
+            return await Get<Genero, GeneroDTO>(paginacion, ordernarPor: g => g.Nombre);
         }
 
         [HttpGet("{id:int}", Name = "ObtenerGeneroPorId")] //Name -> Sirve para que otros métodos puedan referenciarla sin escribir manualmente la URL

@@ -21,3 +21,6 @@ appsettings.Development.json
 # Sistema operativo
 .DS_Store
 Thumbs.db
+
+# Imágenes de actores
+PeliculasAPI/wwwroot/actores/
