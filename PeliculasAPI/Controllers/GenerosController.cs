@@ -19,12 +19,12 @@ namespace PeliculasAPI.Controllers
         private readonly ApplicationDbContext context;
         private readonly IMapper mapper;
         private const string cacheTag = "generos";
-        public GenerosController(IOutputCacheStore outputCacheStore,ApplicationDbContext context, IMapper mapper) 
-        {   
+        public GenerosController(IOutputCacheStore outputCacheStore, ApplicationDbContext context, IMapper mapper)
+        {
             this.outputCacheStore = outputCacheStore;
             this.context = context;
             this.mapper = mapper;
-        }    
+        }
 
         [HttpGet]
         [OutputCache(Tags = [cacheTag])]
@@ -42,7 +42,17 @@ namespace PeliculasAPI.Controllers
         [OutputCache(Tags = [cacheTag])]
         public async Task<ActionResult<GeneroDTO>> Get(int id)
         {
-            throw new NotImplementedException();
+            var genero = await context.Generos
+                .ProjectTo<GeneroDTO>(mapper.ConfigurationProvider)
+                .FirstOrDefaultAsync(g => g.Id == id);
+
+            if (genero is null)
+            {
+                return NotFound();
+            }
+
+            return genero;
+
         }
 
         [HttpPost]
@@ -53,20 +63,46 @@ namespace PeliculasAPI.Controllers
             context.Add(genero); // Marca la entidad para inserción
             await context.SaveChangesAsync(); // Ejecuta el INSERT y genera el Id
 
+            //Limpiamos cache
+            await outputCacheStore.EvictByTagAsync(cacheTag, default);
+
             // Devuelve 201 y la URL del recurso creado
-            return CreatedAtRoute("ObtenerGeneroPorId", new {id = genero.Id}, genero);
+            return CreatedAtRoute("ObtenerGeneroPorId", new { id = genero.Id }, genero);
         }
 
-        [HttpPut]
-        public void Put()
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> Put(int id, [FromBody] GeneroCreacionDTO generoCreacionDTO)
         {
-            throw new NotImplementedException();
+            var generoExiste = await context.Generos.AnyAsync(g => g.Id == id);
+
+            if (!generoExiste)
+            {
+                return NotFound();
+            }
+
+            var genero = mapper.Map<Genero>(generoCreacionDTO);
+            genero.Id = id;
+
+            context.Update(genero);
+            await context.SaveChangesAsync();
+
+            //Limpiamos cache
+            await outputCacheStore.EvictByTagAsync(cacheTag, default);
+
+            return NoContent();
+
         }
 
-        [HttpDelete] 
-        public void Delete()
+        [HttpDelete("{id:int}")] 
+        public async Task<IActionResult> Delete(int id)
         {
-            throw new NotImplementedException();
+            var registrosBorrados = await context.Generos.Where(g => g.Id == id).ExecuteDeleteAsync();
+            if(registrosBorrados == 0)
+            {
+                return NotFound();
+            }
+            await outputCacheStore.EvictByTagAsync(cacheTag, default);
+            return NoContent();
         }
 
     }
