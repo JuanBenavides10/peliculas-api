@@ -1,6 +1,10 @@
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using NetTopologySuite;
+using NetTopologySuite.Geometries;
 using PeliculasAPI;
 using PeliculasAPI.Servicios;
+using PeliculasAPI.Utilidades;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,11 +16,17 @@ builder.Services.AddEndpointsApiExplorer(); //Add
 builder.Services.AddSwaggerGen(); // Add Swagger services
 
 //Automapper
-builder.Services.AddAutoMapper(typeof(Program));
+builder.Services.AddSingleton(proveedor => new MapperConfiguration(configuracion =>
+{
+    var geometryFactory = proveedor.GetRequiredService<GeometryFactory>();
+    configuracion.AddProfile(new AutoMapperProfiles(geometryFactory));
+}).CreateMapper());
 
 //DbContext
-builder.Services.AddDbContext<ApplicationDbContext>(opciones => opciones.UseSqlServer("name=DefaultConnection"));
+builder.Services.AddDbContext<ApplicationDbContext>(opciones => 
+    opciones.UseSqlServer("name=DefaultConnection",sqlServer => sqlServer.UseNetTopologySuite()));
 
+builder.Services.AddSingleton<GeometryFactory>(NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326));
 
 // Output Cache: guarda la respuesta HTTP durante 15 segundos
 // para evitar ejecutar el endpoint en cada petición.
