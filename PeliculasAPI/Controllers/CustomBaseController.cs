@@ -1,8 +1,10 @@
 ﻿using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.EntityFrameworkCore;
 using PeliculasAPI.DTOs;
+using PeliculasAPI.Entidades;
 using PeliculasAPI.Utilidades;
 using System.Linq.Expressions;
 
@@ -12,10 +14,14 @@ namespace PeliculasAPI.Controllers
     {
         private readonly ApplicationDbContext context;
         private readonly IMapper mapper;
+        private readonly IOutputCacheStore outputCacheStore;
+        private readonly string cacheTag;
 
-        public CustomBaseController(ApplicationDbContext context, IMapper mapper) {
+        public CustomBaseController(ApplicationDbContext context, IMapper mapper, IOutputCacheStore outputCacheStore, string cacheTag) {
             this.context = context;
             this.mapper = mapper;
+            this.outputCacheStore = outputCacheStore;
+            this.cacheTag = cacheTag;
         } 
 
         protected async Task<List<TDTO>> Get<TEntidad, TDTO>(PaginacionDTO paginacion, Expression<Func<TEntidad, object>> ordernarPor)
@@ -27,6 +33,63 @@ namespace PeliculasAPI.Controllers
                 .OrderBy(ordernarPor)
                 .Paginar(paginacion)
                 .ProjectTo<TDTO>(mapper.ConfigurationProvider).ToListAsync(); //ProjectTo -> No realiza consulta de datos que no necesita
+        }
+
+        protected async Task<ActionResult<TDTO>> Get<TEntidad, TDTO>(int id)
+            where TEntidad : class, IId
+            where TDTO : IId
+        {
+            var entidad = await context.Set<TEntidad>()
+                .ProjectTo<TDTO>(mapper.ConfigurationProvider)
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            if(entidad is null)
+            {
+                return NotFound();
+            }
+
+            return entidad;
+        }
+
+        protected async Task<IActionResult> Post<TCreacionDTO,TEntidad,TDTO>(TCreacionDTO creacionDTO, string nombreRuta) where TEntidad : class , IId
+        {
+            var entidad = mapper.Map<TEntidad>(creacionDTO);
+            context.Add(entidad); // Marca la entidad para inserción
+            await context.SaveChangesAsync(); // Ejecuta el INSERT y genera el Id 
+            await outputCacheStore.EvictByTagAsync(cacheTag, default);//Limpiamos cache
+
+            var entidadDTO = mapper.Map<TDTO>(entidad);
+            return CreatedAtRoute(nombreRuta, new { id = entidad.Id }, entidadDTO); // Devuelve 201 y la URL del recurso creado
+        }
+
+        protected async Task<IActionResult> Put<TCreacionDTO,TEntidad>(int id, TCreacionDTO creacionDTO) where TEntidad : class, IId
+        {
+            var entidadExiste = await context.Set<TEntidad>().AnyAsync(g => g.Id == id);
+            if (!entidadExiste)
+            {
+                return NotFound();
+            }
+            var entidad = mapper.Map<TEntidad>(creacionDTO);
+            entidad.Id = id;
+
+            context.Update(entidad);
+            await context.SaveChangesAsync();
+
+            //Limpiamos cache
+            await outputCacheStore.EvictByTagAsync(cacheTag, default);
+
+            return NoContent();
+        }
+
+        protected async Task<IActionResult> Delete<TEntidad>(int id) where TEntidad : class ,IId
+        {
+            var registrosBorrados = await context.Set<TEntidad>().Where(g => g.Id == id).ExecuteDeleteAsync();
+            if (registrosBorrados == 0)
+            {
+                return NotFound();
+            }
+            await outputCacheStore.EvictByTagAsync(cacheTag, default);
+            return NoContent();
         }
 
     }

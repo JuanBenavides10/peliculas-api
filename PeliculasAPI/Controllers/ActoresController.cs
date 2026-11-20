@@ -21,7 +21,7 @@ namespace PeliculasAPI.Controllers
         private const string cacheTag = "actores";
         private readonly string contenedor = "actores";
 
-        public ActoresController(ApplicationDbContext context, IMapper mapper,IOutputCacheStore outputCacheStore, IAlmacenadorArchivos almacenadorArchivos) :base(context, mapper)
+        public ActoresController(ApplicationDbContext context, IMapper mapper,IOutputCacheStore outputCacheStore, IAlmacenadorArchivos almacenadorArchivos) :base(context, mapper, outputCacheStore, cacheTag)
         {
             this.context = context;
             this.mapper = mapper;
@@ -40,15 +40,7 @@ namespace PeliculasAPI.Controllers
         [OutputCache(Tags = [cacheTag])]
         public async Task<ActionResult<ActorDTO>>Get(int id)
         {
-            var actor = await context.Actores
-                .ProjectTo<ActorDTO>(mapper.ConfigurationProvider).FirstOrDefaultAsync(a => a.Id == id);
-
-            if(actor is null)
-            {
-                return NotFound();
-            }
-
-            return actor;
+            return await Get<Actor, ActorDTO>(id);
         }
 
         [HttpPost]
@@ -93,15 +85,7 @@ namespace PeliculasAPI.Controllers
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var registrosBorrados = await context.Actores.Where(a => a.Id == id).ExecuteDeleteAsync();
-
-            if(registrosBorrados == 0)
-            {
-                return NotFound();
-            }
-
-            await outputCacheStore.EvictByTagAsync(cacheTag, default);
-            return NoContent();
+            return await Delete<Actor>(id);
 
         }
     }
