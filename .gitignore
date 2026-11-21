@@ -24,3 +24,6 @@ Thumbs.db
 
 # Imágenes de actores
 PeliculasAPI/wwwroot/actores/
+
+# Imágenes de peliculas
+PeliculasAPI/wwwroot/peliculas/
