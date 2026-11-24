@@ -16,7 +16,6 @@
 
 # Configuración local y secretos
 .env
-appsettings.Development.json
 
 # Sistema operativo
 .DS_Store
